@@ -71,6 +71,7 @@ for page in range(num_pages):
     except:
         print('Error caught at Page {}'.format(page))
 
+#test
 #print(json.dumps(response.json(), indent=4))
 
 # INITIALIZE MONGODB DB
