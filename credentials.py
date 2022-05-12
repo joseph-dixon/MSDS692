@@ -1,1 +1,2 @@
-api_key = 'owXmP-mU-dhKD63o-V-_0Q_agQH-E4SJuB3w'
+# Visit https://api.setlist.fm/docs/1.0/index.html to register for an API key
+api_key = <Your API Key Here>
