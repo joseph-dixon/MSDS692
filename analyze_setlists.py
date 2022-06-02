@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pymongo
 
@@ -51,26 +52,53 @@ def build_df(db,collection):
     # write dictionary of dictionaries to DF and replace NaN values with 0
     df = pd.DataFrame.from_dict(df_dict, orient = 'index')
     df.fillna(0, inplace = True)
+    df.rename_axis('show_id', inplace = True)
+    df.reset_index(inplace = True)
 
     return df
 
+def compare_series(a,b):
+    """
+    Accepts two series as arguments
+    Returns similarity_score, defined as number of duplicates divided by number of hits
+    """
+    result = a.add(b)
+    num_twos = 0
+    num_hits = 0
+    for item in result:
+        if item == 2:
+            num_twos += 1
+            num_hits += 1
+        elif item == 1:
+            num_hits += 1
+
+    return float(num_twos / num_hits)
+
 #mycol = get_user_input()
 df = build_df(mydb, 'king_gizzard_&_the_lizard_wizard')
-for row in df.iterrows():
-    print(row)
+df['most_similar_show'] = np.NaN
+df['similarity_score'] = np.NaN
 
-## COMPARISON FUNCTION
-"""
-Accepts DF as argument. Maybe is a class method, IDK
-Iterates through rows. For each row, it stores that row as a series and eliminates that row and all prior rows in temporary DF variable.
-Applies a map/apply function that scores each row against the canonical series, sums the columns, and counts the number of twos. Divides by the number of non-zero column totals.
-Search for maximum value in new "comparison_score" column and extracts the ID associated with it. NaN if all zero. Writes ID to source-of-truth DF in "closest_setlist" column.
-"""
-## SUBCOMPARISON FUNCTION
-"""
-Accepts two series as arguments. Sums them column-wise, extracts count of twos, count of non-zeros.
-"""
+for idx, row in df.iterrows():
 
-## Class everything up as a 'Corpus' object? With .compare_setlists method? Maybe optional time parameters?
+    if idx+1 == len(df):
+        continue
+    else:
+        # Create new temporary DF and drop canonical row, as well as all prior rows
+        temp_df = df.copy(deep=True)
+        #temp_df = temp_df[temp_df.index > idx]
+        temp_df.drop(idx, axis = 0, inplace = True)
+        temp_df.drop('show_id', axis = 1, inplace = True)
 
-# print(mydb.list_collection_names())
+        holdout = row.drop(labels = ['show_id'])
+        temp_df['similarity_score'] = temp_df.apply(lambda x: compare_series(x,holdout), axis = 1)
+
+        most_similar_show = temp_df[['similarity_score']].idxmax()
+        similarity_score = temp_df['similarity_score'].iloc[most_similar_show]
+
+        df.at[idx,'most_similar_show'] = most_similar_show
+        df.at[idx, 'similarity_score'] = similarity_score
+        
+        print('Similarities computed for row {}'.format(idx))
+
+print(df)
