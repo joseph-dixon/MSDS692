@@ -5,8 +5,8 @@ import pymongo
 client = pymongo.MongoClient("mongodb://localhost:27017/")
 mydb = client["setlists"]
 
-def get_user_input():
-    collections = mydb.list_collection_names()
+def get_user_input(db):
+    collections = db.list_collection_names()
     print("Following collections found. Please confirm which artist you'd like to analyze:")
     for idx, artist in enumerate(collections):
         print('{}: {}'.format(idx+1,artist))
@@ -15,13 +15,12 @@ def get_user_input():
 
     return collections[int(user_choice)-1]
 
-def build_df(db,collection):
+def build_df(mycol):
     """
-    Accepts DB name as function and retrieves all non-null setlists
+    Accepts Collection name as function and retrieves all non-null setlists
     Returns sparse matrix of songs + n_grams as DataFrame to be passed to analysis function
     """
 
-    mycol = db[collection]
     results = mycol.find({"setlist.1": {"$exists": "true"}})
 
     # initialize empty dictionary
@@ -75,30 +74,54 @@ def compare_series(a,b):
     return float(num_twos / num_hits)
 
 #mycol = get_user_input()
-df = build_df(mydb, 'king_gizzard_&_the_lizard_wizard')
-df['most_similar_show'] = np.NaN
-df['similarity_score'] = np.NaN
+def run_analysis(db):
+    """
+    Core analysis function.
+    """
 
-for idx, row in df.iterrows():
+    collection = get_user_input(db)
+    mycol = db[collection]
 
-    if idx+1 == len(df):
-        continue
-    else:
-        # Create new temporary DF and drop canonical row, as well as all prior rows
-        temp_df = df.copy(deep=True)
-        #temp_df = temp_df[temp_df.index > idx]
-        temp_df.drop(idx, axis = 0, inplace = True)
-        temp_df.drop('show_id', axis = 1, inplace = True)
+    df = build_df(mycol)
+    df['most_similar_show'] = np.NaN
+    df['similarity_score'] = np.NaN
 
-        holdout = row.drop(labels = ['show_id'])
-        temp_df['similarity_score'] = temp_df.apply(lambda x: compare_series(x,holdout), axis = 1)
+    for idx, row in df.iterrows():
 
-        most_similar_show = temp_df[['similarity_score']].idxmax()
-        similarity_score = temp_df['similarity_score'].iloc[most_similar_show]
+        if idx+1 == len(df):
+            continue
+        else:
+            # Create new temporary DF and drop canonical row, as well as all prior rows
+            temp_df = df.copy(deep=True)
+            temp_df = temp_df[temp_df.index > idx]
+            #temp_df.drop(idx, axis = 0, inplace = True)
+            temp_df.drop('show_id', axis = 1, inplace = True)
 
-        df.at[idx,'most_similar_show'] = most_similar_show
-        df.at[idx, 'similarity_score'] = similarity_score
-        
-        print('Similarities computed for row {}'.format(idx))
+            holdout = row.drop(labels = ['show_id'])
+            temp_df['similarity_score'] = temp_df.apply(lambda x: compare_series(x,holdout), axis = 1)
 
-print(df)
+            most_similar_show = temp_df[['similarity_score']].idxmax()
+            similarity_score = temp_df['similarity_score'].loc[most_similar_show]
+
+            df.at[idx,'most_similar_show'] = most_similar_show
+            df.at[idx, 'similarity_score'] = similarity_score
+
+            print('Similarities computed for row {}'.format(idx))
+
+    most_similar_shows_in_corpus = df[['similarity_score']].idxmax()
+    primary_show = df['show_id'].iloc[most_similar_shows_in_corpus].item()
+    secondary_show_idx = int(df['most_similar_show'].iloc[most_similar_shows_in_corpus].item())
+    secondary_show = df['show_id'].iloc[secondary_show_idx]
+    similarity_score = df['similarity_score'].iloc[most_similar_shows_in_corpus].item()
+
+    primary_show_result = mycol.find({"id" : primary_show})
+    secondary_show_result = mycol.find({"id" : secondary_show})
+
+    print('Most similar shows: {} and {}'.format(primary_show,secondary_show))
+    for result in primary_show_result:
+        print(result)
+    for result in secondary_show_result:
+        print(result)
+    print('Similary score: {}'.format(similarity_score))
+
+run_analysis(mydb)
