@@ -61,10 +61,12 @@ def get_user_input():
     artist_information = {idx+1:build_artist_descriptions(record) for idx, record in enumerate(response.json()['artists'])}
 
     # Prompt user to confirm artist
+    print('-'*50)
     print('Following results found:')
     for k, v in artist_information.items():
         print('{}. Name: {} | Confidence score: {} | Origin: {}. Description: {}'.format(k, v['name'], v['confidence_score'], v['origin'], v['description']))
 
+    print('-'*50)
     confirmation = input('Please confirm your artist by entering the number associated with your artist: ')
 
     return (artist_information[int(confirmation)]['id'],artist_information[int(confirmation)]['name'].lower().replace(' ','_'))
