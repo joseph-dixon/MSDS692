@@ -9,4 +9,4 @@ This algorithm considers the following factors: whether the same songs exist bet
 
 The algorithm then iteratively compares each row against every other row in the sparse matrix and extracts the most similar setlist. It does this by summing the two arrays and dividing the number of twos (i.e. identical values in columns) by the number of non-zero values in the resultant array. To reduce runtime, each row is only compared against rows it hasn't "seen" before. In other words, if we compare Row A with Rows B and C, when the algorithm moves to Row B, it only needs to look at Row C.
 
-Once similarity scores have been computed for each row in the sparse matrix, the algorithm pulls out the highest value.
+Once similarity scores have been computed for each row in the sparse matrix, the algorithm pulls out the highest value and writes the ID of the most similar setlist, along with the similarity score, to the sparse matrix. Once this process has run for the entire corpus, it's simply a matter of identifying the highest value in the similarity_score column.
